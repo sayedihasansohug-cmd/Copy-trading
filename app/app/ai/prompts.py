@@ -1,15 +1,12 @@
 """
-AI prompt definitions for the Solana meme-coin trading engine.
+Advanced prompts for Gemini AI analysis of Solana meme coins.
 
-This module contains:
-- System instructions
-- Market-analysis prompt builder
-- Strict JSON response schema
-- Risk-aware decision instructions
-
-IMPORTANT:
-This module does NOT execute trades.
-It only prepares prompts for the AI decision layer.
+This module ONLY builds prompts.
+It does NOT:
+- execute trades
+- sign transactions
+- access wallets
+- send transactions
 """
 
 from __future__ import annotations
@@ -18,407 +15,653 @@ import json
 from typing import Any, Mapping
 
 
-# ---------------------------------------------------------------------------
-# AI RESPONSE SCHEMA
-# ---------------------------------------------------------------------------
+# ============================================================================
+# ALLOWED MARKET DATA
+# ============================================================================
 
-AI_RESPONSE_SCHEMA: dict[str, Any] = {
-    "decision": "BUY | SELL | HOLD | REJECT",
-    "confidence": 0.0,
-    "risk_score": 0.0,
-    "signal_quality": "A | B | C | D | F",
-    "entry_score": 0.0,
-    "liquidity_score": 0.0,
-    "momentum_score": 0.0,
-    "volume_score": 0.0,
-    "holder_score": 0.0,
-    "safety_score": 0.0,
-    "recommended_entry": None,
-    "stop_loss_percent": None,
-    "take_profit_percent": None,
-    "max_position_percent": None,
-    "time_horizon_minutes": None,
-    "reasons": [],
-    "warnings": [],
-    "invalidating_conditions": [],
+ALLOWED_MARKET_FIELDS = {
+    "token_address",
+    "symbol",
+    "name",
+    "chain",
+    "price",
+    "price_change_1m",
+    "price_change_5m",
+    "price_change_15m",
+    "price_change_1h",
+    "volume_1m",
+    "volume_5m",
+    "volume_15m",
+    "volume_1h",
+    "market_cap",
+    "fdv",
+    "liquidity",
+    "liquidity_usd",
+    "holders",
+    "top_holder_percent",
+    "top_10_holder_percent",
+    "buy_count",
+    "sell_count",
+    "buy_sell_ratio",
+    "tx_count",
+    "age_minutes",
+    "pair_address",
+    "dex",
+    "token_created_at",
+    "mint_authority",
+    "freeze_authority",
+    "lp_locked",
+    "lp_burned",
+    "contract_verified",
+    "honeypot_check",
+    "tax_buy",
+    "tax_sell",
+    "developer_holding_percent",
+    "insider_holding_percent",
+    "social_score",
+    "website",
+    "telegram",
+    "twitter",
 }
 
 
-# ---------------------------------------------------------------------------
+# ============================================================================
 # SYSTEM PROMPT
-# ---------------------------------------------------------------------------
+# ============================================================================
 
 SYSTEM_PROMPT = """
-You are an advanced crypto market-analysis engine specializing in
-high-risk Solana meme coins.
+You are an advanced Solana meme-coin risk-analysis AI.
 
-Your job is to analyze supplied market and token data and return a
-STRICTLY STRUCTURED trading analysis.
+Your job is to analyze market data and determine whether a token
+should be considered for a trade.
 
-You are NOT allowed to invent missing market data.
+IMPORTANT:
+You are an ANALYSIS engine only.
 
-You must distinguish between:
+You must NEVER:
+- execute a transaction
+- request a private key
+- request a seed phrase
+- sign a transaction
+- control a wallet
+- claim that profit is guaranteed
+- invent missing market data
+- assume missing information is safe
 
-1. Facts supplied by the data
-2. Reasonable market inference
-3. Unknown information
+You must be conservative.
 
-If important information is missing, reduce confidence and increase risk.
+A token can be rejected even when its price is increasing.
 
-You must NEVER guarantee profit.
+Your analysis must consider:
 
-You must NEVER claim that a trade is certain to win.
+1. Liquidity
+2. Market capitalization
+3. Market-cap/liquidity relationship
+4. Price momentum
+5. Trading volume
+6. Buy/sell activity
+7. Holder concentration
+8. Top-10 holder concentration
+9. Token age
+10. Mint authority
+11. Freeze authority
+12. Liquidity-pool safety
+13. Honeypot/safety checks
+14. Buy/sell taxes
+15. Developer holdings
+16. Insider holdings
+17. Social activity
+18. Contract verification
+19. Overall market structure
+20. Risk of manipulation
 
-You must prioritize capital preservation over trade frequency.
+------------------------------------------------------------
+DECISION RULES
+------------------------------------------------------------
 
-Your possible decisions are:
+You MUST return exactly one of:
 
 BUY
 SELL
 HOLD
 REJECT
 
-Use REJECT when the token appears unsafe, data quality is insufficient,
-liquidity is inadequate, manipulation risk is excessive, or important
-risk controls fail.
+BUY:
+Use only when the available evidence supports a potentially favorable
+risk/reward setup and there are no major safety concerns.
 
-For BUY decisions:
+SELL:
+Use when the supplied context indicates that an existing position
+should be exited.
 
-- Do not assume the token will rise.
-- Evaluate liquidity.
-- Evaluate volume.
-- Evaluate momentum.
-- Evaluate holder concentration when available.
-- Evaluate token safety information when available.
-- Evaluate market-cap/liquidity relationship.
-- Look for abnormal volume or possible manipulation.
-- Consider whether entry conditions are already extended.
-- Define invalidating conditions.
-- Define stop-loss and take-profit levels only when sufficient data exists.
-- Never recommend risking the entire portfolio.
+HOLD:
+Use when the token may be interesting but the evidence is insufficient
+for a confident entry.
 
-For SELL decisions:
+REJECT:
+Use when there is a major safety problem, extremely poor liquidity,
+dangerous concentration, suspicious structure, or insufficient reliable
+data.
 
-- Determine whether momentum or market structure has deteriorated.
-- Consider liquidity and exit risk.
-- Consider whether the position should be reduced rather than completely
-  closed when appropriate.
+Never use BUY merely because:
+- price is rising
+- volume is high
+- social activity is high
+- the token is new
+- another trader may be buying
 
-For HOLD decisions:
+------------------------------------------------------------
+CONFIDENCE
+------------------------------------------------------------
 
-- Explain what information or market condition is missing.
-- Specify what would cause a transition to BUY or SELL.
+confidence must be a number from 0.0 to 1.0.
 
-For REJECT decisions:
+0.90+:
+Very strong evidence, but NOT guaranteed.
 
-- Clearly identify the main risk factors.
-- Do not recommend entering the position.
+0.80-0.89:
+Strong setup.
 
-CONFIDENCE RULES:
+0.70-0.79:
+Moderate setup.
 
-confidence must be between 0.0 and 1.0.
+0.60-0.69:
+Weak setup.
 
-Confidence is NOT probability of profit.
+Below 0.60:
+Normally HOLD or REJECT.
 
-A high confidence score means the supplied evidence strongly supports
-the analytical conclusion, not that the trade is guaranteed to succeed.
+Never claim certainty.
 
-RISK SCORE:
+------------------------------------------------------------
+RISK SCORE
+------------------------------------------------------------
 
-risk_score must be between 0.0 and 1.0.
+risk_score must be from 0.0 to 1.0.
 
-0.0 = comparatively low risk
-1.0 = extremely high risk
+0.00-0.20 = low risk
+0.21-0.40 = moderate-low risk
+0.41-0.60 = moderate risk
+0.61-0.80 = high risk
+0.81-1.00 = extreme risk
 
-For meme coins, high risk is normal. Do not artificially assign a low
-risk score simply because momentum is strong.
+If risk is above 0.85, do NOT recommend BUY.
 
-SCORING:
+------------------------------------------------------------
+SIGNAL QUALITY
+------------------------------------------------------------
 
-entry_score       = quality of current entry
-liquidity_score   = quality of available liquidity
-momentum_score    = strength and consistency of momentum
-volume_score      = quality of volume
-holder_score      = holder distribution quality
-safety_score      = token/security quality
+Use:
 
-All scores must be between 0.0 and 1.0.
+A = excellent
+B = good
+C = average
+D = weak
+F = unacceptable
 
-SIGNAL QUALITY:
+------------------------------------------------------------
+SCORING
+------------------------------------------------------------
 
-A = exceptionally strong setup
-B = good setup
-C = mixed/uncertain setup
-D = weak setup
-F = unacceptable setup
+Return these scores between 0.0 and 1.0:
 
-IMPORTANT:
+entry_score
+liquidity_score
+momentum_score
+volume_score
+holder_score
+safety_score
 
-Never create fake values for unavailable fields.
+Do not fabricate data.
 
-If data is unavailable, use null where appropriate and explain it in
-warnings.
+If an important metric is unavailable, lower confidence and explain it
+in warnings/reasons.
 
-RETURN ONLY VALID JSON.
+------------------------------------------------------------
+VERY EARLY TOKENS
+------------------------------------------------------------
+
+Very young tokens are extremely risky.
+
+Do NOT automatically treat early entry as bullish.
+
+A token being only a few minutes old is NOT sufficient evidence for BUY.
+
+------------------------------------------------------------
+LIQUIDITY
+------------------------------------------------------------
+
+Liquidity is critical.
+
+If liquidity is missing, uncertain, or extremely low, do not recommend BUY.
+
+Consider both:
+- absolute liquidity
+- market-cap/liquidity relationship
+
+------------------------------------------------------------
+HOLDER DISTRIBUTION
+------------------------------------------------------------
+
+Large concentration in one wallet or a small group of wallets increases
+the probability of manipulation and rapid price collapse.
+
+Treat high holder concentration as a major risk.
+
+------------------------------------------------------------
+SECURITY
+------------------------------------------------------------
+
+Pay close attention to:
+
+mint_authority
+freeze_authority
+honeypot_check
+tax_buy
+tax_sell
+lp_locked
+lp_burned
+contract_verified
+
+If a safety-critical field indicates danger, prefer REJECT.
+
+------------------------------------------------------------
+MISSING DATA
+------------------------------------------------------------
+
+Missing data is NOT positive evidence.
+
+Never convert missing data into a bullish assumption.
+
+------------------------------------------------------------
+OUTPUT FORMAT
+------------------------------------------------------------
+
+Return ONLY valid JSON.
 
 Do not use Markdown.
 
-Do not add explanations outside the JSON object.
+Do not put explanations outside the JSON object.
+
+Required JSON structure:
+
+{
+  "decision": "BUY",
+  "confidence": 0.0,
+  "risk_score": 0.0,
+  "signal_quality": "A",
+  "entry_score": 0.0,
+  "liquidity_score": 0.0,
+  "momentum_score": 0.0,
+  "volume_score": 0.0,
+  "holder_score": 0.0,
+  "safety_score": 0.0,
+  "recommended_entry": null,
+  "stop_loss_percent": null,
+  "take_profit_percent": null,
+  "max_position_percent": null,
+  "time_horizon_minutes": null,
+  "reasons": [],
+  "warnings": [],
+  "invalidating_conditions": []
+}
+
+All numeric scores must be between 0.0 and 1.0.
+
+Do not output NaN.
+Do not output Infinity.
+Do not output comments.
+
+If uncertain, prefer HOLD or REJECT.
 """
 
 
-# ---------------------------------------------------------------------------
-# MARKET DATA PROMPT
-# ---------------------------------------------------------------------------
+# ============================================================================
+# MARKET DATA SANITIZATION
+# ============================================================================
 
-def build_market_analysis_prompt(
-    market_data: Mapping[str, Any],
-) -> str:
-    """
-    Build a structured market-analysis prompt.
-
-    Parameters
-    ----------
-    market_data:
-        Dictionary containing market/token information.
-
-    Returns
-    -------
-    str
-        Prompt to send to the AI model.
-    """
-
-    if not isinstance(market_data, Mapping):
-        raise TypeError("market_data must be a mapping/dictionary")
-
-    clean_data = _sanitize_market_data(market_data)
-
-    payload = json.dumps(
-        clean_data,
-        ensure_ascii=False,
-        indent=2,
-        default=str,
-    )
-
-    return f"""
-Analyze the following Solana token using the rules provided in the
-system instructions.
-
-MARKET DATA:
-
-{payload}
-
-ANALYSIS REQUIREMENTS:
-
-1. Determine whether the supplied data is sufficient.
-2. Evaluate liquidity.
-3. Evaluate volume and volume consistency.
-4. Evaluate price momentum.
-5. Evaluate market-cap/liquidity relationship.
-6. Evaluate holder distribution if supplied.
-7. Evaluate token safety information if supplied.
-8. Look for signs of abnormal activity or possible manipulation.
-9. Determine whether the current entry is already overextended.
-10. Produce a risk-adjusted decision.
-11. Define invalidating conditions.
-12. Never invent missing data.
-13. Return ONLY the required JSON object.
-
-REQUIRED JSON STRUCTURE:
-
-{json.dumps(AI_RESPONSE_SCHEMA, indent=2)}
-""".strip()
-
-
-# ---------------------------------------------------------------------------
-# DATA SANITIZATION
-# ---------------------------------------------------------------------------
 
 def _sanitize_market_data(
     market_data: Mapping[str, Any],
 ) -> dict[str, Any]:
     """
-    Normalize incoming market data before sending it to the AI.
+    Keep only explicitly allowed market-data fields.
 
-    This prevents accidental leakage of arbitrary internal fields and
-    keeps the AI input predictable.
+    This prevents unrelated/internal fields from being sent to Gemini.
     """
 
-    allowed_fields = {
-        "token_address",
-        "symbol",
-        "name",
-        "chain",
-        "price",
-        "price_change_1m",
-        "price_change_5m",
-        "price_change_15m",
-        "price_change_1h",
-        "volume_1m",
-        "volume_5m",
-        "volume_15m",
-        "volume_1h",
-        "market_cap",
-        "fdv",
-        "liquidity",
-        "liquidity_usd",
-        "holders",
-        "top_holder_percent",
-        "top_10_holder_percent",
-        "buy_count",
-        "sell_count",
-        "buy_sell_ratio",
-        "tx_count",
-        "age_minutes",
-        "pair_address",
-        "dex",
-        "token_created_at",
-        "mint_authority",
-        "freeze_authority",
-        "lp_locked",
-        "lp_burned",
-        "contract_verified",
-        "honeypot_check",
-        "tax_buy",
-        "tax_sell",
-        "developer_holding_percent",
-        "insider_holding_percent",
-        "social_score",
-        "website",
-        "telegram",
-        "twitter",
-    }
+    if not isinstance(
+        market_data,
+        Mapping,
+    ):
+        raise TypeError(
+            "market_data must be a mapping/dictionary."
+        )
 
     sanitized: dict[str, Any] = {}
 
-    for key in allowed_fields:
-        if key in market_data:
-            sanitized[key] = market_data[key]
+    for key in ALLOWED_MARKET_FIELDS:
+
+        if key not in market_data:
+            continue
+
+        value = market_data[key]
+
+        # --------------------------------------------------------------
+        # Prevent oversized unexpected values.
+        # --------------------------------------------------------------
+
+        if isinstance(
+            value,
+            str,
+        ):
+            value = value.strip()
+
+            if len(value) > 2000:
+                value = value[:2000]
+
+        sanitized[key] = value
 
     return sanitized
 
 
-# ---------------------------------------------------------------------------
-# RISK REVIEW PROMPT
-# ---------------------------------------------------------------------------
+# ============================================================================
+# JSON SERIALIZATION
+# ============================================================================
+
+
+def _safe_json(
+    data: Mapping[str, Any],
+) -> str:
+    """
+    Convert market data to stable JSON.
+
+    Invalid/non-standard objects are converted to strings.
+    """
+
+    try:
+
+        return json.dumps(
+            data,
+            ensure_ascii=False,
+            separators=(
+                ",",
+                ":",
+            ),
+            default=str,
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ) as exc:
+
+        raise ValueError(
+            "Unable to serialize market data."
+        ) from exc
+
+
+# ============================================================================
+# MARKET ANALYSIS PROMPT
+# ============================================================================
+
+
+def build_market_analysis_prompt(
+    market_data: Mapping[str, Any],
+) -> str:
+    """
+    Build the primary Gemini market-analysis prompt.
+    """
+
+    sanitized = _sanitize_market_data(
+        market_data
+    )
+
+    market_json = _safe_json(
+        sanitized
+    )
+
+    return f"""
+Analyze the following Solana meme-coin market data.
+
+IMPORTANT:
+Use ONLY the supplied information.
+
+Do not invent:
+- holders
+- liquidity
+- volume
+- market cap
+- price
+- taxes
+- authorities
+- social metrics
+- transaction counts
+
+If information is missing, explicitly mention that in warnings.
+
+MARKET DATA:
+{market_json}
+
+Perform the following analysis:
+
+1. Determine the overall market structure.
+2. Evaluate liquidity.
+3. Evaluate market-cap/liquidity relationship.
+4. Evaluate short-term momentum.
+5. Evaluate volume.
+6. Evaluate buy/sell pressure.
+7. Evaluate holder concentration.
+8. Evaluate top-10 holder concentration.
+9. Evaluate token age.
+10. Evaluate mint/freeze authority.
+11. Evaluate honeypot/safety information.
+12. Evaluate liquidity-pool safety.
+13. Evaluate taxes.
+14. Evaluate developer/insider concentration.
+15. Evaluate social signals.
+16. Identify manipulation risks.
+17. Determine risk/reward.
+18. Produce a final decision.
+
+Be especially careful with newly launched meme coins.
+
+A rapidly increasing price is NOT enough to justify BUY.
+
+Return ONLY the required JSON structure from the system instructions.
+"""
+
+
+# ============================================================================
+# SECOND-STAGE RISK REVIEW
+# ============================================================================
+
 
 def build_risk_review_prompt(
     market_data: Mapping[str, Any],
     ai_decision: Mapping[str, Any],
 ) -> str:
     """
-    Create a second-stage risk-review prompt.
+    Build an independent second-stage risk-review prompt.
 
-    This can later be used as a separate safety layer before paper/live
-    execution.
+    The purpose is to challenge the first AI decision rather than simply
+    agree with it.
     """
 
-    market_payload = json.dumps(
-        _sanitize_market_data(market_data),
-        ensure_ascii=False,
-        indent=2,
-        default=str,
+    sanitized_market_data = _sanitize_market_data(
+        market_data
     )
 
-    decision_payload = json.dumps(
-        dict(ai_decision),
-        ensure_ascii=False,
-        indent=2,
-        default=str,
+    market_json = _safe_json(
+        sanitized_market_data
+    )
+
+    decision_json = _safe_json(
+        dict(ai_decision)
     )
 
     return f"""
-Perform an independent risk review of the proposed AI decision.
+You are performing a SECOND-STAGE RISK REVIEW.
 
-MARKET DATA:
+Your job is NOT to agree with the previous AI decision.
 
-{market_payload}
+Your job is to actively search for reasons why the proposed trade
+could fail.
 
-PROPOSED AI DECISION:
+------------------------------------------------------------
+MARKET DATA
+------------------------------------------------------------
 
-{decision_payload}
+{market_json}
 
-Your job is NOT to blindly approve the decision.
+------------------------------------------------------------
+FIRST AI DECISION
+------------------------------------------------------------
 
-Check for:
+{decision_json}
 
-- insufficient liquidity
-- excessive holder concentration
-- suspicious volume
-- extreme price extension
-- abnormal buy/sell imbalance
-- possible manipulation
-- token safety problems
-- missing critical information
-- unreasonable stop-loss
-- unreasonable take-profit
-- excessive portfolio exposure
-- poor risk/reward
-- inconsistent AI reasoning
+------------------------------------------------------------
+RISK REVIEW TASK
+------------------------------------------------------------
 
-Return ONLY valid JSON using this structure:
+Check the first decision for:
 
-{{
-    "approved": true,
-    "final_decision": "BUY | SELL | HOLD | REJECT",
-    "risk_score": 0.0,
-    "max_position_percent": null,
-    "critical_risks": [],
-    "warnings": [],
-    "required_conditions": [],
-    "reason": ""
-}}
-""".strip()
+1. Liquidity risk
+2. Holder concentration
+3. Top-10 concentration
+4. Market-cap/liquidity imbalance
+5. Extreme token age
+6. Mint authority
+7. Freeze authority
+8. Honeypot risk
+9. LP safety
+10. Buy/sell tax risk
+11. Developer concentration
+12. Insider concentration
+13. Volume manipulation
+14. Wash trading possibility
+15. Pump-and-dump structure
+16. Insufficient market history
+17. Missing critical data
+18. Unreasonable confidence
+19. Excessive risk
+20. Poor risk/reward
+
+Be conservative.
+
+If the first AI says BUY but important evidence is missing,
+you may downgrade it.
+
+If the first AI says BUY and you find a serious safety concern,
+reject it.
+
+Never approve a trade because the price is going up alone.
+
+------------------------------------------------------------
+OUTPUT
+------------------------------------------------------------
+
+Return ONLY valid JSON.
+
+Use exactly this general structure:
+
+{
+  "approved": false,
+  "final_decision": "REJECT",
+  "risk_score": 0.0,
+  "max_position_percent": null,
+  "critical_risks": [],
+  "warnings": [],
+  "required_conditions": [],
+  "reason": ""
+}
+
+Rules:
+
+approved:
+true or false
+
+final_decision:
+BUY / SELL / HOLD / REJECT
+
+risk_score:
+0.0 to 1.0
+
+max_position_percent:
+number or null
+
+critical_risks:
+array of strings
+
+warnings:
+array of strings
+
+required_conditions:
+array of strings
+
+reason:
+short explanation
+
+Never output Markdown.
+Never output comments.
+Never claim guaranteed profit.
+"""
 
 
-# ---------------------------------------------------------------------------
-# PAPER-TRADING PROMPT
-# ---------------------------------------------------------------------------
+# ============================================================================
+# OPTIONAL COMPACT PROMPT
+# ============================================================================
 
-def build_paper_trade_prompt(
+
+def build_quick_analysis_prompt(
     market_data: Mapping[str, Any],
-    decision: Mapping[str, Any],
 ) -> str:
     """
-    Build a prompt for evaluating a hypothetical paper trade.
+    Smaller prompt for situations where latency/cost matters.
 
-    This does NOT execute a real transaction.
+    This is optional and is NOT currently used by analyzer.py.
     """
+
+    sanitized = _sanitize_market_data(
+        market_data
+    )
 
     return f"""
-Evaluate this hypothetical paper-trading opportunity.
+Analyze this Solana token conservatively.
 
-MARKET DATA:
-{json.dumps(_sanitize_market_data(market_data), indent=2, default=str)}
+DATA:
+{_safe_json(sanitized)}
 
-AI DECISION:
-{json.dumps(dict(decision), indent=2, default=str)}
+Focus on:
+- liquidity
+- momentum
+- volume
+- holder concentration
+- safety
+- market-cap/liquidity ratio
+- token age
+- manipulation risk
 
-Determine whether the proposed paper trade satisfies the analytical
-requirements.
-
-Return ONLY valid JSON:
+Return ONLY JSON:
 
 {{
-    "paper_trade_allowed": true,
-    "entry_price": null,
-    "stop_loss_price": null,
-    "take_profit_price": null,
-    "position_percent": null,
-    "risk_reward_ratio": null,
-    "reason": "",
-    "warnings": []
+  "decision": "BUY",
+  "confidence": 0.0,
+  "risk_score": 0.0,
+  "signal_quality": "F",
+  "entry_score": 0.0,
+  "liquidity_score": 0.0,
+  "momentum_score": 0.0,
+  "volume_score": 0.0,
+  "holder_score": 0.0,
+  "safety_score": 0.0,
+  "recommended_entry": null,
+  "stop_loss_percent": null,
+  "take_profit_percent": null,
+  "max_position_percent": null,
+  "time_horizon_minutes": null,
+  "reasons": [],
+  "warnings": [],
+  "invalidating_conditions": []
 }}
-""".strip()
-
-
-# ---------------------------------------------------------------------------
-# RESPONSE VALIDATION
-# ---------------------------------------------------------------------------
-
-def get_required_response_fields() -> tuple[str, ...]:
-    """
-    Return the required top-level fields expected from the AI.
-    """
-
-    return tuple(AI_RESPONSE_SCHEMA.keys())
+"""
