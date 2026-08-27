@@ -1,0 +1,13 @@
+google-genai>=1.31.0
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
+aiohttp>=3.10.5
+httpx>=0.27.2
+SQLAlchemy>=2.0.36
+asyncpg>=0.30.0
+aiosqlite>=0.20.0
+solana>=0.36.0
+solders>=0.27.0
+base58>=2.1.1
+python-dotenv>=1.0.1
+tenacity>=9.0.0
