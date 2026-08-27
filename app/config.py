@@ -3,11 +3,18 @@ import os
 from dotenv import load_dotenv
 
 
-# Load variables from .env when running locally.
+# Load .env variables
 load_dotenv()
 
 
-def _get_bool(name: str, default: bool = False) -> bool:
+# ============================================================
+# HELPERS
+# ============================================================
+
+def _get_bool(
+    name: str,
+    default: bool = False,
+) -> bool:
     value = os.getenv(name)
 
     if value is None:
@@ -21,7 +28,10 @@ def _get_bool(name: str, default: bool = False) -> bool:
     }
 
 
-def _get_int(name: str, default: int) -> int:
+def _get_int(
+    name: str,
+    default: int,
+) -> int:
     value = os.getenv(name)
 
     if value is None or value.strip() == "":
@@ -33,7 +43,10 @@ def _get_int(name: str, default: int) -> int:
         return default
 
 
-def _get_float(name: str, default: float) -> float:
+def _get_float(
+    name: str,
+    default: float,
+) -> float:
     value = os.getenv(name)
 
     if value is None or value.strip() == "":
@@ -46,7 +59,7 @@ def _get_float(name: str, default: float) -> float:
 
 
 # ============================================================
-# AI
+# GEMINI AI
 # ============================================================
 
 GEMINI_API_KEY = os.getenv(
@@ -56,7 +69,7 @@ GEMINI_API_KEY = os.getenv(
 
 GEMINI_MODEL = os.getenv(
     "GEMINI_MODEL",
-    "gemini-3.7-flash",
+    "gemini-2.5-flash",
 )
 
 
@@ -109,9 +122,9 @@ DATABASE_URL = os.getenv(
 # TRADING MODE
 # ============================================================
 
-# CRITICAL:
-# Paper trading is the default.
-# Live trading must be explicitly enabled.
+# IMPORTANT:
+# Keep this FALSE while testing.
+# No real transaction should be executed.
 LIVE_TRADING = _get_bool(
     "LIVE_TRADING",
     False,
@@ -124,7 +137,7 @@ LIVE_TRADING = _get_bool(
 
 MAX_POSITION_USD = _get_float(
     "MAX_POSITION_USD",
-    25.0,
+    10.0,
 )
 
 MAX_DAILY_LOSS_USD = _get_float(
@@ -159,18 +172,28 @@ MAX_SLIPPAGE_BPS = _get_int(
 
 MIN_LIQUIDITY_USD = _get_float(
     "MIN_LIQUIDITY_USD",
-    10000.0,
+    10_000.0,
 )
 
 MIN_VOLUME_24H_USD = _get_float(
     "MIN_VOLUME_24H_USD",
-    25000.0,
+    25_000.0,
 )
 
+
+# AI confidence threshold.
+#
+# 80 means the AI must have at least 0.80 confidence
+# before the deterministic BUY gate allows the trade.
 AI_BUY_THRESHOLD = _get_int(
     "AI_BUY_THRESHOLD",
     80,
 )
+
+
+# ============================================================
+# SCANNING
+# ============================================================
 
 SCAN_INTERVAL_SECONDS = _get_int(
     "SCAN_INTERVAL_SECONDS",
@@ -219,9 +242,7 @@ TELEGRAM_CHAT_ID = os.getenv(
 
 def validate_config() -> None:
     """
-    Validate critical configuration before starting the bot.
-
-    Paper trading does not require private keys or API secrets.
+    Validate configuration before starting the application.
     """
 
     if MAX_POSITION_USD <= 0:
@@ -274,23 +295,35 @@ def validate_config() -> None:
             "SCAN_INTERVAL_SECONDS must be at least 5."
         )
 
+    if TOKEN_COOLDOWN_MINUTES < 0:
+        raise ValueError(
+            "TOKEN_COOLDOWN_MINUTES cannot be negative."
+        )
+
     if MAX_CANDIDATES_PER_SCAN <= 0:
         raise ValueError(
             "MAX_CANDIDATES_PER_SCAN must be greater than zero."
         )
 
+    if PAPER_START_BALANCE_USD <= 0:
+        raise ValueError(
+            "PAPER_START_BALANCE_USD must be greater than zero."
+        )
+
     # Live mode requires a private key.
-    # We intentionally do NOT require it in paper mode.
     if LIVE_TRADING and not SOLANA_PRIVATE_KEY:
         raise ValueError(
-            "LIVE_TRADING=true requires "
-            "SOLANA_PRIVATE_KEY."
+            "LIVE_TRADING=true requires SOLANA_PRIVATE_KEY."
         )
 
 
+# ============================================================
+# TRADING MODE
+# ============================================================
+
 def trading_mode() -> str:
     """
-    Return the current execution mode.
+    Return current trading mode.
     """
 
     if LIVE_TRADING:
