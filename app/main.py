@@ -340,3 +340,11 @@ if __name__ == "__main__":
     sys.exit(
         main()
     )
+@app.route("/")
+def home():
+    return jsonify({
+        "status": "online",
+        "service": "AI Meme Trading Bot",
+        "mode": BOT_STATUS["mode"],
+        "message": "Bot is running."
+    })
