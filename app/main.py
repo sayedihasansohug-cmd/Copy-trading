@@ -618,36 +618,66 @@ if __name__ == "__main__":
         debug=False,
         use_reloader=False,
     )
-# --- Visual Dashboard Route ---
-HTML_TEMPLATE = """
+    
+from flask import render_template_string
+
+HTML_DASHBOARD = """
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solana Trading Bot Dashboard</title>
+    <title>Solana AI Trading Bot</title>
     <style>
-        body { font-family: sans-serif; background: #121212; color: #fff; padding: 20px; }
-        .card { background: #1e1e1e; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333; }
-        .on { color: #00ff66; font-weight: bold; }
-        .off { color: #ff4444; font-weight: bold; }
-        h2 { color: #9945FF; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0d1117; color: #c9d1d9; padding: 20px; margin: 0; }
+        .container { max-width: 600px; margin: auto; }
+        .header { background: #161b22; padding: 20px; border-radius: 10px; border: 1px solid #30363d; text-align: center; margin-bottom: 20px; }
+        h2 { color: #58a6ff; margin: 0 0 10px 0; }
+        .card { background: #161b22; padding: 18px; border-radius: 10px; border: 1px solid #30363d; margin-bottom: 15px; }
+        .status-badge { background: #238636; color: white; padding: 4px 10px; border-radius: 20px; font-size: 14px; font-weight: bold; }
+        .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #21262d; }
+        .info-row:last-child { border-bottom: none; }
+        .val { font-weight: bold; color: #f0f6fc; }
     </style>
-    <script>setInterval(() => location.reload(), 5000);</script>
+    <script>
+        setInterval(() => location.reload(), 10000);
+    </script>
 </head>
 <body>
-    <h2>🤖 Solana AI Trading Bot Dashboard</h2>
-    <div class="card">
-        <h3>System Status</h3>
-        <p>Status: <span class="on">ONLINE</span></p>
-        <p>Mode: <strong>PAPER TRADING</strong></p>
-        <p>Scanner: <span class="on">ACTIVE</span></p>
+    <div class="container">
+        <div class="header">
+            <h2>🤖 Solana AI Trading Bot</h2>
+            <span class="status-badge">ONLINE</span>
+        </div>
+        
+        <div class="card">
+            <div class="info-row">
+                <span>Trading Mode:</span>
+                <span class="val" style="color:#e3b341;">PAPER TRADING</span>
+            </div>
+            <div class="info-row">
+                <span>AI Engine:</span>
+                <span class="val" style="color:#3fb950;">Active (>= 80 Score)</span>
+            </div>
+            <div class="info-row">
+                <span>Scanner Status:</span>
+                <span class="val" style="color:#3fb950;">Scanning Live Coins</span>
+            </div>
+            <div class="info-row">
+                <span>Telegram Alert:</span>
+                <span class="val" style="color:#3fb950;">Connected</span>
+            </div>
+        </div>
+
+        <div class="card" style="text-align: center; font-size: 13px; color: #8b949e;">
+            High-confidence signals will be sent automatically via your Telegram bot.
+        </div>
     </div>
 </body>
 </html>
 """
 
-@app.route('/dashboard')
-def dashboard():
-    return render_template_string(HTML_TEMPLATE)
+@app.route('/')
+def home():
+    return render_template_string(HTML_DASHBOARD)
     
