@@ -1,3 +1,4 @@
+flask
 google-genai>=1.31.0
 pydantic>=2.9.0
 pydantic-settings>=2.5.0
