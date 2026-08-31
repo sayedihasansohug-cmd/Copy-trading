@@ -618,3 +618,36 @@ if __name__ == "__main__":
         debug=False,
         use_reloader=False,
     )
+# --- Visual Dashboard Route ---
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solana Trading Bot Dashboard</title>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: #fff; padding: 20px; }
+        .card { background: #1e1e1e; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333; }
+        .on { color: #00ff66; font-weight: bold; }
+        .off { color: #ff4444; font-weight: bold; }
+        h2 { color: #9945FF; }
+    </style>
+    <script>setInterval(() => location.reload(), 5000);</script>
+</head>
+<body>
+    <h2>🤖 Solana AI Trading Bot Dashboard</h2>
+    <div class="card">
+        <h3>System Status</h3>
+        <p>Status: <span class="on">ONLINE</span></p>
+        <p>Mode: <strong>PAPER TRADING</strong></p>
+        <p>Scanner: <span class="on">ACTIVE</span></p>
+    </div>
+</body>
+</html>
+"""
+
+@app.route('/dashboard')
+def dashboard():
+    return render_template_string(HTML_TEMPLATE)
+    
