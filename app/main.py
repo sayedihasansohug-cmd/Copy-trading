@@ -664,5 +664,5 @@ def background_worker() -> None:
                                     f"Mode: {BOT_STATUS['mode']}"
                                 )
                             except Exception:
-                                logger.exception(
+                                logger.exception("Telegram SELL notification failed")
                                     message = "Telegram SELL notification"
