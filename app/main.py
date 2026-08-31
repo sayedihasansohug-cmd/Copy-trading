@@ -677,7 +677,8 @@ HTML_DASHBOARD = """
 </html>
 """
 
-@app.route('/')
-def home():
+@app.route('/live')
+def live_dashboard():
     return render_template_string(HTML_DASHBOARD)
+    
     
