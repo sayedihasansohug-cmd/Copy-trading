@@ -665,4 +665,4 @@ def background_worker() -> None:
                                 )
                             except Exception:
                                 logger.exception(
-                                    "Telegram SELL noti
+                                    message = "Telegram SELL notification"
