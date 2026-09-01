@@ -29,3 +29,5 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
+      - key: PYTHON_VERSION
+        value: "3.11.9"
